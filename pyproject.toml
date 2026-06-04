@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68,<70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glucopilot-rl"
+version = "0.1.0"
+description = "Reinforcement learning research project for simulated blood glucose control in virtual patients."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "setuptools<70",
+  "simglucose==0.2.11",
+  "gymnasium==0.29.1",
+  "numpy>=1.25,<3",
+  "pandas>=2.0,<3",
+  "matplotlib>=3.7,<4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
