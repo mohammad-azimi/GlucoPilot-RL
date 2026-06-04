@@ -10,8 +10,9 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive ins
 
 - [x] Validate the simulator locally and export a CGM glucose trace.
 - [x] Add a corrected 24-hour deterministic meal scenario and safety-first fixed-action baseline search.
-- [ ] Train a reinforcement-learning agent and compare it against the baseline.
-- [ ] Evaluate across several virtual adults and scenario seeds.
+- [x] Evaluate the tuned fixed-action baseline on held-out virtual adults and meal scenarios.
+- [ ] Train a reinforcement-learning agent on randomized development episodes.
+- [ ] Compare the trained policy against the fixed-action baseline on held-out tests.
 - [ ] Add a small visual dashboard for portfolio presentation.
 
 ## Experiments
@@ -31,6 +32,10 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive ins
 
 The best fixed-action baseline is selected with a safety-first ordering: minimize very-low and below-range glucose first, then minimize simulated mean risk and above-range time. This baseline becomes the comparison point for the future reinforcement-learning policy.
 
+### 3. Held-out baseline generalization check
+
+`scripts/evaluate_baseline_generalization.py` freezes the fixed action selected on the development episode (`adult#001`, `standard-day`, seed `42`) and evaluates it without retuning across four unseen adult virtual patients and four meal scenarios. This is important because a controller scoring 100% in range on one deterministic episode does not demonstrate robust control. It exports held-out heatmaps and the worst held-out glucose trace, forming a fair test set for the later reinforcement-learning policy.
+
 ## Technology stack
 
 - Python 3.12.6 — tested on Windows 10
@@ -49,6 +54,7 @@ python -m pip install --upgrade pip setuptools wheel --disable-pip-version-check
 python -m pip install -r requirements.txt --disable-pip-version-check
 python scripts\check_environment.py
 python scripts\evaluate_fixed_basal.py
+python scripts\evaluate_baseline_generalization.py
 ```
 
 If a system SOCKS proxy is active and `pip` reports missing SOCKS support, temporarily disable the proxy during dependency installation or install `PySocks` locally first.
@@ -72,6 +78,16 @@ outputs/baseline/best_fixed_basal_trace.png
 outputs/baseline/traces/*.csv
 ```
 
+After the held-out baseline generalization check:
+
+```text
+outputs/generalization/fixed_action_generalization_summary.csv
+outputs/generalization/held_out_time_in_range_heatmap.png
+outputs/generalization/held_out_mean_risk_heatmap.png
+outputs/generalization/worst_held_out_trace.png
+outputs/generalization/traces/*.csv
+```
+
 ## Repository structure
 
 ```text
@@ -79,7 +95,8 @@ GlucoPilot-RL/
 ├── outputs/
 ├── scripts/
 │   ├── check_environment.py
-│   └── evaluate_fixed_basal.py
+│   ├── evaluate_fixed_basal.py
+│   └── evaluate_baseline_generalization.py
 ├── src/
 │   └── glucopilot_rl/
 │       ├── __init__.py
@@ -98,3 +115,7 @@ GlucoPilot-RL/
 The simglucose Gymnasium adapter exposes a one-value vector action space, while its internal legacy simulator consumes a scalar action. `src/glucopilot_rl/env.py` contains an action wrapper that normalizes this interface before reinforcement-learning training is added.
 
 The baseline evaluates native simulator action values under one reproducible in-silico scenario. The simulator seed is passed at environment construction time so that candidate actions are compared under the same sensor and patient randomness. These values and results are research artifacts inside the simulator only and must not be interpreted as real insulin recommendations.
+
+## Evaluation protocol
+
+The initial `0.0450` fixed action is a development result, not a universal conclusion. It was selected on one virtual patient and one deterministic meal schedule. The held-out evaluation intentionally tests other virtual adults and meal schedules without changing that action. The future reinforcement-learning model must be trained only on development episodes and compared against the frozen baseline on the same held-out suite.

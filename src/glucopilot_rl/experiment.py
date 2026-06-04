@@ -7,13 +7,14 @@ import numpy as np
 import pandas as pd
 
 from .env import make_simglucose_env
-from .scenarios import SENSOR_SAMPLE_MINUTES, STANDARD_DAY_STEPS, make_standard_day_scenario
+from .scenarios import SENSOR_SAMPLE_MINUTES, STANDARD_DAY_STEPS, make_scenario
 
 
 def run_constant_action_episode(
     basal_action: float,
     *,
     patient_name: str = "adult#001",
+    scenario_name: str = "standard-day",
     episode_steps: int = STANDARD_DAY_STEPS,
     seed: int = 42,
 ) -> pd.DataFrame:
@@ -25,8 +26,8 @@ def run_constant_action_episode(
     env: gym.Env = make_simglucose_env(
         patient_name=patient_name,
         episode_steps=episode_steps,
-        custom_scenario=make_standard_day_scenario(),
-        scenario_tag="standard-day",
+        custom_scenario=make_scenario(scenario_name),
+        scenario_tag=scenario_name,
         simulator_seed=seed,
     )
     observation, info = env.reset()
@@ -47,6 +48,9 @@ def run_constant_action_episode(
                 "step": step + 1,
                 "elapsed_hours": (step + 1) * sample_minutes / 60.0,
                 "simulation_time": info["time"].isoformat(),
+                "patient_name": patient_name,
+                "scenario_name": scenario_name,
+                "seed": int(seed),
                 "cgm_mg_dl": float(observation[0]),
                 "reward": float(reward),
                 "risk": float(info["risk"]),
