@@ -1,4 +1,4 @@
-"""Evaluate reproducible fixed-action baselines for one virtual adult patient."""
+"""Evaluate fixed-action baselines for one virtual adult patient over 24 hours."""
 
 from __future__ import annotations
 
@@ -15,27 +15,39 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from glucopilot_rl.experiment import run_constant_action_episode  # noqa: E402
 from glucopilot_rl.metrics import TARGET_HIGH, TARGET_LOW, summarize_episode  # noqa: E402
-from glucopilot_rl.scenarios import STANDARD_DAY_MEALS  # noqa: E402
+from glucopilot_rl.scenarios import (  # noqa: E402
+    SENSOR_SAMPLE_MINUTES,
+    STANDARD_DAY_HOURS,
+    STANDARD_DAY_MEALS,
+    STANDARD_DAY_STEPS,
+)
 
 PATIENT_NAME = "adult#001"
-EPISODE_STEPS = 288
 SEED = 42
-CANDIDATE_ACTIONS = np.linspace(0.0, 0.030, 13)
+# Extended after the first dry-run selected the upper boundary (0.0300).
+# All values are simulator experiment actions only, never dosing guidance.
+CANDIDATE_ACTIONS = np.array(
+    [0.0000, 0.0100, 0.0200, 0.0250, 0.0300, 0.0350, 0.0375,
+     0.0400, 0.0425, 0.0450, 0.0475, 0.0500, 0.0550],
+    dtype=float,
+)
 
 
 def plot_best_trace(trace: pd.DataFrame, best_action: float, output_path: Path) -> None:
     plt.figure(figsize=(12, 5.5))
     plt.fill_between(
-        trace["step"], TARGET_LOW, TARGET_HIGH, alpha=0.16, label="Target range (70–180 mg/dL)"
+        trace["elapsed_hours"], TARGET_LOW, TARGET_HIGH, alpha=0.16,
+        label="Target range (70–180 mg/dL)",
     )
-    plt.plot(trace["step"], trace["cgm_mg_dl"], linewidth=2, label="CGM glucose")
+    plt.plot(trace["elapsed_hours"], trace["cgm_mg_dl"], linewidth=2, label="CGM glucose")
+    y_label = min(float(trace["cgm_mg_dl"].max()) + 3.0, 245.0)
     for meal_hour, meal_grams in STANDARD_DAY_MEALS:
-        meal_step = meal_hour * 12
-        plt.axvline(meal_step, linestyle=":", linewidth=1)
-        plt.text(meal_step + 1, trace["cgm_mg_dl"].max(), f"{meal_grams} g", fontsize=8)
+        plt.axvline(meal_hour, linestyle=":", linewidth=1)
+        plt.text(meal_hour + 0.08, y_label, f"{meal_grams} g", fontsize=8)
     plt.title(f"Best Fixed-Action Baseline — {PATIENT_NAME} (action={best_action:.4f})")
-    plt.xlabel("Simulation step")
+    plt.xlabel("Simulated time (hours)")
     plt.ylabel("CGM glucose (mg/dL)")
+    plt.xlim(0, STANDARD_DAY_HOURS)
     plt.legend(loc="upper left")
     plt.tight_layout()
     plt.savefig(output_path, dpi=190)
@@ -48,7 +60,7 @@ def plot_candidate_comparison(summary: pd.DataFrame, output_path: Path) -> None:
     plt.plot(ordered["basal_action"], ordered["time_in_range_pct"], marker="o", label="In range")
     plt.plot(ordered["basal_action"], ordered["time_below_range_pct"], marker="o", label="Below range")
     plt.plot(ordered["basal_action"], ordered["time_above_range_pct"], marker="o", label="Above range")
-    plt.title(f"Fixed-Action Baseline Search — {PATIENT_NAME}")
+    plt.title(f"Fixed-Action Baseline Search — {PATIENT_NAME} (24 simulated hours)")
     plt.xlabel("Native simulator basal action")
     plt.ylabel("Episode time (%)")
     plt.legend()
@@ -71,7 +83,7 @@ def main() -> None:
         trace = run_constant_action_episode(
             action_value,
             patient_name=PATIENT_NAME,
-            episode_steps=EPISODE_STEPS,
+            episode_steps=STANDARD_DAY_STEPS,
             seed=SEED,
         )
         trace_path = traces_dir / f"{label}.csv"
@@ -80,11 +92,17 @@ def main() -> None:
         summaries.append(summarize_episode(trace, label))
 
     summary = pd.DataFrame(summaries)
-    # Simglucose defines its default reward from the risk-index change; mean
-    # risk is therefore used as the primary reproducible baseline criterion.
+    # Selection is safety-first: avoid very low/below-range glucose before
+    # minimizing risk or rewarding in-range time.
     ranked = summary.sort_values(
-        by=["mean_risk", "time_below_range_pct", "time_in_range_pct"],
-        ascending=[True, True, False],
+        by=[
+            "time_very_low_pct",
+            "time_below_range_pct",
+            "mean_risk",
+            "time_above_range_pct",
+            "time_in_range_pct",
+        ],
+        ascending=[True, True, True, True, False],
     ).reset_index(drop=True)
     ranked.insert(0, "rank", ranked.index + 1)
     summary_path = output_dir / "fixed_basal_summary.csv"
@@ -101,10 +119,13 @@ def main() -> None:
     plot_best_trace(best_trace, best_action, best_trace_chart)
 
     best = ranked.iloc[0]
-    print("Fixed-action baseline evaluation passed.")
+    duration_hours = len(best_trace) * SENSOR_SAMPLE_MINUTES / 60.0
+    print("Corrected fixed-action baseline evaluation passed.")
     print(f"Patient: {PATIENT_NAME}")
+    print(f"Seed: {SEED}")
+    print(f"Simulated duration: {duration_hours:.1f} hours ({len(best_trace)} steps at {SENSOR_SAMPLE_MINUTES} minutes/step)")
     print(f"Candidates evaluated: {len(CANDIDATE_ACTIONS)}")
-    print(f"Best native simulator action: {best_action:.4f}")
+    print(f"Best safety-first simulator action: {best_action:.4f}")
     print(f"Time in range: {best['time_in_range_pct']:.2f}%")
     print(f"Time below range: {best['time_below_range_pct']:.2f}%")
     print(f"Time above range: {best['time_above_range_pct']:.2f}%")

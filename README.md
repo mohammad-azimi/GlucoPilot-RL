@@ -9,7 +9,7 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive ins
 ## Current status
 
 - [x] Validate the simulator locally and export a CGM glucose trace.
-- [x] Add a deterministic one-day meal scenario and fixed-action baseline search.
+- [x] Add a corrected 24-hour deterministic meal scenario and safety-first fixed-action baseline search.
 - [ ] Train a reinforcement-learning agent and compare it against the baseline.
 - [ ] Evaluate across several virtual adults and scenario seeds.
 - [ ] Add a small visual dashboard for portfolio presentation.
@@ -22,14 +22,14 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive ins
 
 ### 2. Fixed-action baseline search
 
-`scripts/evaluate_fixed_basal.py` runs the same virtual adult patient under a deterministic 24-hour meal scenario. It evaluates 13 constant native simulator actions and records:
+`scripts/evaluate_fixed_basal.py` runs the same virtual adult patient under a deterministic 24-hour meal scenario. The default sensor interval reported by the simulator is 3 minutes, so a complete day is evaluated over 480 steps. It evaluates 13 constant native simulator actions and records:
 
 - percentage of time in the evaluation target range of 70–180 mg/dL;
 - percentage of time below and above that range;
 - very-low and very-high glucose percentages;
 - mean simulated risk and cumulative reward.
 
-The best fixed-action baseline is selected using the lowest simulated mean risk, with lower below-range time and higher in-range time as tie-breakers. This baseline becomes the comparison point for the future reinforcement-learning policy.
+The best fixed-action baseline is selected with a safety-first ordering: minimize very-low and below-range glucose first, then minimize simulated mean risk and above-range time. This baseline becomes the comparison point for the future reinforcement-learning policy.
 
 ## Technology stack
 
@@ -97,4 +97,4 @@ GlucoPilot-RL/
 
 The simglucose Gymnasium adapter exposes a one-value vector action space, while its internal legacy simulator consumes a scalar action. `src/glucopilot_rl/env.py` contains an action wrapper that normalizes this interface before reinforcement-learning training is added.
 
-The baseline evaluates native simulator action values under one reproducible in-silico scenario. These values and results are research artifacts inside the simulator only and must not be interpreted as real insulin recommendations.
+The baseline evaluates native simulator action values under one reproducible in-silico scenario. The simulator seed is passed at environment construction time so that candidate actions are compared under the same sensor and patient randomness. These values and results are research artifacts inside the simulator only and must not be interpreted as real insulin recommendations.

@@ -7,14 +7,14 @@ import numpy as np
 import pandas as pd
 
 from .env import make_simglucose_env
-from .scenarios import make_standard_day_scenario
+from .scenarios import SENSOR_SAMPLE_MINUTES, STANDARD_DAY_STEPS, make_standard_day_scenario
 
 
 def run_constant_action_episode(
     basal_action: float,
     *,
     patient_name: str = "adult#001",
-    episode_steps: int = 288,
+    episode_steps: int = STANDARD_DAY_STEPS,
     seed: int = 42,
 ) -> pd.DataFrame:
     """Run one deterministic virtual-patient episode with a fixed action.
@@ -27,16 +27,26 @@ def run_constant_action_episode(
         episode_steps=episode_steps,
         custom_scenario=make_standard_day_scenario(),
         scenario_tag="standard-day",
+        simulator_seed=seed,
     )
-    observation, _ = env.reset(seed=seed)
-    records: list[dict[str, float | int]] = []
+    observation, info = env.reset()
+    sample_minutes = float(info["sample_time"])
+    if not np.isclose(sample_minutes, SENSOR_SAMPLE_MINUTES):
+        env.close()
+        raise RuntimeError(
+            "Unexpected simglucose sample time: "
+            f"{sample_minutes} minutes; expected {SENSOR_SAMPLE_MINUTES}."
+        )
 
+    records: list[dict[str, float | int | str]] = []
     for step in range(episode_steps):
         action = np.array([basal_action], dtype=np.float32)
         observation, reward, terminated, truncated, info = env.step(action)
         records.append(
             {
                 "step": step + 1,
+                "elapsed_hours": (step + 1) * sample_minutes / 60.0,
+                "simulation_time": info["time"].isoformat(),
                 "cgm_mg_dl": float(observation[0]),
                 "reward": float(reward),
                 "risk": float(info["risk"]),

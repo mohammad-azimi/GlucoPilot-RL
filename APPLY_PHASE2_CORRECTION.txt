@@ -1,0 +1,16 @@
+GlucoPilot-RL — Phase 2 correction
+===================================
+
+This update fixes the baseline evaluation horizon and plot labels:
+- simglucose reports a 3-minute sample interval in this environment.
+- A full 24-hour experiment therefore uses 480 steps, not 288.
+- Meal markers are now positioned on the correct simulated-hour axis.
+- The simulator seed is passed at environment construction for fair action comparison.
+- The candidate action range is expanded because the first dry-run selected its upper boundary.
+- Baseline selection is safety-first before mean-risk ranking.
+
+Copy the project files into the existing GlucoPilot-RL directory, keep the
+existing .venv folder, and run:
+
+    .venv\Scripts\activate
+    python scripts\evaluate_fixed_basal.py

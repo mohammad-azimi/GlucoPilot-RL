@@ -6,7 +6,12 @@ from datetime import datetime
 
 from simglucose.simulation.scenario import CustomScenario
 
-# A deterministic 24-hour meal schedule used only for in-silico evaluation.
+# The default Dexcom sensor exposed by simglucose reports a 3-minute sample time.
+SENSOR_SAMPLE_MINUTES = 3
+STANDARD_DAY_HOURS = 24
+STANDARD_DAY_STEPS = STANDARD_DAY_HOURS * 60 // SENSOR_SAMPLE_MINUTES
+
+# A deterministic one-day meal schedule used only for in-silico evaluation.
 STANDARD_DAY_MEALS: list[tuple[int, int]] = [
     (7, 45),
     (12, 70),

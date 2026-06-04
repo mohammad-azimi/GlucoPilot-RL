@@ -2,7 +2,7 @@
 
 The Gymnasium adapter shipped by simglucose defines a one-dimensional Box
 space for actions, while its internal legacy simulator consumes a scalar basal
-value.  The wrapper below keeps the vector-shaped public API expected by
+value. The wrapper below keeps the vector-shaped public API expected by
 reinforcement-learning libraries and converts the action before it reaches the
 simulator.
 """
@@ -32,33 +32,28 @@ class ScalarBasalActionWrapper(gym.ActionWrapper):
 
 def make_simglucose_env(
     patient_name: str = "adult#001",
-    episode_steps: int = 288,
+    episode_steps: int = 480,
     *,
     custom_scenario: Any | None = None,
     scenario_tag: str = "default",
+    simulator_seed: int | None = None,
     reward_fun: Callable[..., float] | None = None,
 ) -> gym.Env:
     """Create a Gymnasium-compatible simulated-patient environment.
 
-    Parameters
-    ----------
-    patient_name:
-        A simglucose virtual patient, for example ``adult#001``.
-    episode_steps:
-        Maximum number of simulator steps in one episode.
-    custom_scenario:
-        Optional simglucose scenario, used for reproducible experiment meals.
-    scenario_tag:
-        Identifier included in the Gymnasium registration name.  Use distinct
-        values when registering different scenarios in the same process.
-    reward_fun:
-        Optional custom reward function accepted by simglucose.
+    ``simulator_seed`` is supplied when the underlying simglucose object is
+    constructed. This matters because its Gymnasium ``reset(seed=...)`` method
+    does not reseed the internal sensor and virtual-patient streams.
     """
     safe_patient_id = patient_name.replace("#", "-")
     safe_scenario_tag = scenario_tag.replace("_", "-").replace(" ", "-")
-    env_id = f"GlucoPilotRL/{safe_patient_id}-{safe_scenario_tag}-{episode_steps}-v0"
+    seed_tag = "none" if simulator_seed is None else str(simulator_seed)
+    env_id = (
+        f"GlucoPilotRL/{safe_patient_id}-{safe_scenario_tag}-"
+        f"{episode_steps}-seed-{seed_tag}-v0"
+    )
 
-    kwargs: dict[str, Any] = {"patient_name": patient_name}
+    kwargs: dict[str, Any] = {"patient_name": patient_name, "seed": simulator_seed}
     if custom_scenario is not None:
         kwargs["custom_scenario"] = custom_scenario
     if reward_fun is not None:
