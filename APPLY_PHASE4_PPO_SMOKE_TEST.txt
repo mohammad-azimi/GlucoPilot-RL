@@ -1,0 +1,16 @@
+PHASE 4 — FIRST PPO PIPELINE SMOKE TEST
+
+This update adds a Stable-Baselines3 PPO training/evaluation pipeline.
+The fixed held-out cases from Phase 3 remain locked and are NOT used for training.
+
+Copy this project's files over the existing GlucoPilot-RL folder without deleting .venv.
+
+Install the newly-added reinforcement-learning dependency:
+  python -m pip install -r requirements.txt --disable-pip-version-check
+
+Run a short pipeline check first:
+  python scripts\train_ppo_agent.py --timesteps 5000 --model-name ppo_smoke_model
+  python scripts\evaluate_ppo_generalization.py --model models\ppo_smoke_model.zip
+
+The 5,000-step model is only a pipeline smoke test. Do not present its metric as a final result.
+A longer training run will be designed after the smoke test executes successfully.

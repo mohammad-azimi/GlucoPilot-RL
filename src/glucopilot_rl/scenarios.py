@@ -20,9 +20,8 @@ STANDARD_DAY_MEALS: list[tuple[int, int]] = [
     (23, 10),
 ]
 
-# Additional scenarios are deliberately kept separate from the original tuning run.
-# They are used to check whether a controller generalizes beyond one easy episode.
-SCENARIO_MEALS: dict[str, list[tuple[int, int]]] = {
+# Frozen comparison scenarios. These are not used to train the PPO policy.
+HELD_OUT_SCENARIO_MEALS: dict[str, list[tuple[int, int]]] = {
     "standard-day": STANDARD_DAY_MEALS,
     "high-carb-day": [
         (7, 75),
@@ -48,18 +47,48 @@ SCENARIO_MEALS: dict[str, list[tuple[int, int]]] = {
     ],
 }
 
+# Training schedules are deliberately separate from the frozen comparison suite.
+TRAINING_SCENARIO_MEALS: dict[str, list[tuple[int, int]]] = {
+    "train-balanced-a": [(6, 35), (11, 55), (15, 12), (19, 65), (22, 8)],
+    "train-balanced-b": [(8, 50), (12, 60), (16, 18), (20, 70)],
+    "train-variable-a": [(7, 30), (10, 12), (13, 80), (18, 45), (21, 20)],
+    "train-variable-b": [(6, 60), (12, 45), (14, 18), (19, 85), (22, 12)],
+}
+
+# Validation schedules are reserved for later iteration decisions only.
+VALIDATION_SCENARIO_MEALS: dict[str, list[tuple[int, int]]] = {
+    "validation-a": [(7, 40), (12, 85), (17, 20), (20, 55)],
+    "validation-b": [(8, 55), (11, 15), (14, 55), (18, 75), (22, 15)],
+}
+
+ALL_SCENARIO_MEALS = {
+    **HELD_OUT_SCENARIO_MEALS,
+    **TRAINING_SCENARIO_MEALS,
+    **VALIDATION_SCENARIO_MEALS,
+}
+
 
 def available_scenarios() -> tuple[str, ...]:
-    """Return scenario names in stable display/evaluation order."""
-    return tuple(SCENARIO_MEALS.keys())
+    """Return frozen baseline/held-out scenario names in stable display order."""
+    return tuple(HELD_OUT_SCENARIO_MEALS.keys())
+
+
+def available_training_scenarios() -> tuple[str, ...]:
+    """Return schedules permitted for PPO training."""
+    return tuple(TRAINING_SCENARIO_MEALS.keys())
+
+
+def available_validation_scenarios() -> tuple[str, ...]:
+    """Return schedules reserved for later validation."""
+    return tuple(VALIDATION_SCENARIO_MEALS.keys())
 
 
 def get_scenario_meals(scenario_name: str) -> list[tuple[int, int]]:
     """Get a copy of the meal schedule for a named experiment scenario."""
     try:
-        meals = SCENARIO_MEALS[scenario_name]
+        meals = ALL_SCENARIO_MEALS[scenario_name]
     except KeyError as exc:
-        valid = ", ".join(available_scenarios())
+        valid = ", ".join(ALL_SCENARIO_MEALS.keys())
         raise ValueError(f"Unknown scenario '{scenario_name}'. Choose from: {valid}.") from exc
     return list(meals)
 

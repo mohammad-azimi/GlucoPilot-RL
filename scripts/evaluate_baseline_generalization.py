@@ -13,21 +13,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from glucopilot_rl.experiment import run_constant_action_episode  # noqa: E402
+from glucopilot_rl.protocol import (  # noqa: E402
+    HELD_OUT_PATIENTS,
+    HELD_OUT_SCENARIOS,
+    REFERENCE_CASE,
+    TUNED_FIXED_ACTION,
+    held_out_cases,
+)
 from glucopilot_rl.metrics import TARGET_HIGH, TARGET_LOW, summarize_episode  # noqa: E402
 from glucopilot_rl.scenarios import (  # noqa: E402
     STANDARD_DAY_HOURS,
     STANDARD_DAY_STEPS,
-    available_scenarios,
     get_scenario_meals,
 )
-
-# This value was selected using only the development case:
-# adult#001 + standard-day meals + seed 42.
-# It is evaluated here without retuning on held-out episodes.
-TUNED_FIXED_ACTION = 0.0450
-REFERENCE_CASE = ("adult#001", "standard-day", 42)
-HELD_OUT_PATIENTS = ["adult#002", "adult#003", "adult#004", "adult#005"]
-HELD_OUT_SCENARIOS = list(available_scenarios())
 
 
 def plot_heatmap(summary: pd.DataFrame, metric: str, title: str, output_path: Path) -> None:
@@ -124,14 +122,12 @@ def main() -> None:
     rows.append(metrics)
     trace_paths[(patient_name, scenario_name, seed)] = trace_path
 
-    for patient_index, held_patient in enumerate(HELD_OUT_PATIENTS):
-        for scenario_index, held_scenario in enumerate(HELD_OUT_SCENARIOS):
-            held_seed = 1000 + patient_index * 100 + scenario_index
-            metrics, trace_path = evaluate_case(
-                held_patient, held_scenario, held_seed, "held_out", traces_dir
-            )
-            rows.append(metrics)
-            trace_paths[(held_patient, held_scenario, held_seed)] = trace_path
+    for held_patient, held_scenario, held_seed in held_out_cases():
+        metrics, trace_path = evaluate_case(
+            held_patient, held_scenario, held_seed, "held_out", traces_dir
+        )
+        rows.append(metrics)
+        trace_paths[(held_patient, held_scenario, held_seed)] = trace_path
 
     summary = pd.DataFrame(rows)
     summary_path = output_dir / "fixed_action_generalization_summary.csv"

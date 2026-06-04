@@ -2,7 +2,7 @@
 
 **Reinforcement Learning for Simulated Blood Glucose Control in Virtual Patients**
 
-GlucoPilot-RL is a portfolio-oriented research project that studies adaptive insulin-control policies in a simulated Type 1 Diabetes environment. The project begins with reproducible virtual-patient experiments and baseline evaluation, then introduces reinforcement learning agents and compares them using glucose-safety metrics.
+GlucoPilot-RL is a portfolio-oriented research project that studies adaptive insulin-control policies in a simulated Type 1 Diabetes environment. It uses reproducible baseline experiments, a locked held-out test suite, and a reinforcement-learning policy trained only on separate development episodes.
 
 > **Research and education only.** This repository uses virtual patients in simulation. It is not medical advice, not a clinical tool, and must not be used to make real insulin-dosing decisions.
 
@@ -11,38 +11,66 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive ins
 - [x] Validate the simulator locally and export a CGM glucose trace.
 - [x] Add a corrected 24-hour deterministic meal scenario and safety-first fixed-action baseline search.
 - [x] Evaluate the tuned fixed-action baseline on held-out virtual adults and meal scenarios.
-- [ ] Train a reinforcement-learning agent on randomized development episodes.
-- [ ] Compare the trained policy against the fixed-action baseline on held-out tests.
+- [x] Add the first Stable-Baselines3 PPO training and frozen-test evaluation pipeline.
+- [ ] Run the PPO smoke test locally and verify model inference outputs.
+- [ ] Train and compare a longer PPO experiment against the frozen baseline.
 - [ ] Add a small visual dashboard for portfolio presentation.
 
-## Experiments
+## Motivation from the baseline experiment
 
-### 1. Environment check
+A constant simulator action selected on `adult#001 / standard-day` scored `100.00%` time in range in its development episode. Once frozen and evaluated without retuning across 16 held-out combinations of other adult virtual patients and meal schedules, its mean time in range dropped to `73.65%`. Its worst episode was `adult#004 / late-dinner`, with only `33.12%` time in range and `66.88%` below range. This observed generalization failure motivates an adaptive policy.
 
-`scripts/check_environment.py` runs a short non-learning episode on virtual patient `adult#001` and exports a CGM trace. It verifies that the simglucose and Gymnasium adapter work correctly on the local machine.
+These are simulator-only research measurements; they are not clinical performance claims.
 
-### 2. Fixed-action baseline search
+## Experimental protocol
 
-`scripts/evaluate_fixed_basal.py` runs the same virtual adult patient under a deterministic 24-hour meal scenario. The default sensor interval reported by the simulator is 3 minutes, so a complete day is evaluated over 480 steps. It evaluates 13 constant native simulator actions and records:
+### Development baseline
 
-- percentage of time in the evaluation target range of 70–180 mg/dL;
-- percentage of time below and above that range;
-- very-low and very-high glucose percentages;
-- mean simulated risk and cumulative reward.
+`scripts/evaluate_fixed_basal.py` searches a fixed-action baseline on only one development case:
 
-The best fixed-action baseline is selected with a safety-first ordering: minimize very-low and below-range glucose first, then minimize simulated mean risk and above-range time. This baseline becomes the comparison point for the future reinforcement-learning policy.
+```text
+adult#001 / standard-day / seed=42
+```
 
-### 3. Held-out baseline generalization check
+The selected action is frozen at `0.0450` for comparison.
 
-`scripts/evaluate_baseline_generalization.py` freezes the fixed action selected on the development episode (`adult#001`, `standard-day`, seed `42`) and evaluates it without retuning across four unseen adult virtual patients and four meal scenarios. This is important because a controller scoring 100% in range on one deterministic episode does not demonstrate robust control. It exports held-out heatmaps and the worst held-out glucose trace, forming a fair test set for the later reinforcement-learning policy.
+### Locked held-out comparison suite
+
+`scripts/evaluate_baseline_generalization.py` evaluates the frozen fixed action on patients `adult#002`–`adult#005` across four fixed meal schedules. These 16 cases were defined before PPO training and must not be used to tune or train the agent.
+
+### PPO training pool
+
+`scripts/train_ppo_agent.py` trains PPO only on a separate randomized development pool:
+
+```text
+Patients: adult#001, adult#006, adult#007, adult#008
+Meal schedules: train-balanced-a, train-balanced-b, train-variable-a, train-variable-b
+```
+
+At each training episode, a patient, a development-only meal schedule, and a simulator seed are sampled. The action is bounded to the simulator search range `0.0000–0.0550`. The observation supplied to the policy contains normalized current CGM, short-term trend, simulated time-of-day features, and the previous action.
+
+The first 5,000-timestep run is a **pipeline smoke test**, not a final trained-performance result.
+
+## Reinforcement-learning environment
+
+The first agent uses:
+
+- **Algorithm:** PPO from Stable-Baselines3
+- **Action:** one continuous bounded simulator basal-control value
+- **Observation features:** CGM, one-step CGM trend, cyclical time-of-day, previous action
+- **Training environment:** randomized development patients and meals only
+- **Reward:** an interpretable safety-shaped simulation reward that penalizes low glucose more severely than high glucose
+- **Evaluation:** deterministic inference on the locked 16-case test suite, compared with the frozen fixed-action baseline
+
+The simulator's built-in reward measures change in risk; this project introduces a safety-oriented custom reward for the first PPO experiment because severe simulated low glucose dominated the frozen baseline's worst held-out outcome.
 
 ## Technology stack
 
-- Python 3.12.6 — tested on Windows 10
+- Python 3.12.6 — tested on Windows 10 for simulator and baseline experiments
 - simglucose 0.2.11
 - Gymnasium 0.29.1
+- Stable-Baselines3 2.8.0 and PyTorch — added for PPO training
 - NumPy, Pandas and Matplotlib
-- Stable-Baselines3 — planned for the reinforcement-learning milestone
 
 ## Setup on Windows
 
@@ -58,6 +86,19 @@ python scripts\evaluate_baseline_generalization.py
 ```
 
 If a system SOCKS proxy is active and `pip` reports missing SOCKS support, temporarily disable the proxy during dependency installation or install `PySocks` locally first.
+
+## Phase 4: run the PPO pipeline smoke test
+
+After copying the Phase 4 update into the project, install the newly added dependency and train a short first model:
+
+```bat
+.venv\Scripts\activate
+python -m pip install -r requirements.txt --disable-pip-version-check
+python scripts\train_ppo_agent.py --timesteps 5000 --model-name ppo_smoke_model
+python scripts\evaluate_ppo_generalization.py --model models\ppo_smoke_model.zip
+```
+
+Installing Stable-Baselines3 may take several minutes because it installs PyTorch. The 5,000-step model exists to confirm that training, saving, loading and frozen-test inference all work on the local Windows setup; its score must not be presented as the final project result.
 
 ## Generated outputs
 
@@ -78,7 +119,7 @@ outputs/baseline/best_fixed_basal_trace.png
 outputs/baseline/traces/*.csv
 ```
 
-After the held-out baseline generalization check:
+After the fixed-action held-out generalization evaluation:
 
 ```text
 outputs/generalization/fixed_action_generalization_summary.csv
@@ -88,21 +129,39 @@ outputs/generalization/worst_held_out_trace.png
 outputs/generalization/traces/*.csv
 ```
 
+After PPO training and evaluation:
+
+```text
+models/ppo_smoke_model.zip
+outputs/training/ppo_smoke_model_monitor.monitor.csv
+outputs/ppo_evaluation/ppo_vs_fixed_held_out_summary.csv
+outputs/ppo_evaluation/ppo_held_out_time_in_range_heatmap.png
+outputs/ppo_evaluation/ppo_minus_fixed_tir_delta_heatmap.png
+outputs/ppo_evaluation/worst_held_out_ppo_trace.png
+outputs/ppo_evaluation/traces/*.csv
+```
+
 ## Repository structure
 
 ```text
 GlucoPilot-RL/
+├── models/
 ├── outputs/
 ├── scripts/
 │   ├── check_environment.py
 │   ├── evaluate_fixed_basal.py
-│   └── evaluate_baseline_generalization.py
+│   ├── evaluate_baseline_generalization.py
+│   ├── train_ppo_agent.py
+│   └── evaluate_ppo_generalization.py
 ├── src/
 │   └── glucopilot_rl/
 │       ├── __init__.py
 │       ├── env.py
 │       ├── experiment.py
 │       ├── metrics.py
+│       ├── protocol.py
+│       ├── rl_env.py
+│       ├── rl_experiment.py
 │       └── scenarios.py
 ├── .gitignore
 ├── pyproject.toml
@@ -112,10 +171,6 @@ GlucoPilot-RL/
 
 ## Technical notes
 
-The simglucose Gymnasium adapter exposes a one-value vector action space, while its internal legacy simulator consumes a scalar action. `src/glucopilot_rl/env.py` contains an action wrapper that normalizes this interface before reinforcement-learning training is added.
+The simglucose Gymnasium adapter exposes a one-value vector action space, while its internal legacy simulator consumes a scalar basal value. `src/glucopilot_rl/env.py` contains an action wrapper that normalizes this interface before it reaches the simulator.
 
-The baseline evaluates native simulator action values under one reproducible in-silico scenario. The simulator seed is passed at environment construction time so that candidate actions are compared under the same sensor and patient randomness. These values and results are research artifacts inside the simulator only and must not be interpreted as real insulin recommendations.
-
-## Evaluation protocol
-
-The initial `0.0450` fixed action is a development result, not a universal conclusion. It was selected on one virtual patient and one deterministic meal schedule. The held-out evaluation intentionally tests other virtual adults and meal schedules without changing that action. The future reinforcement-learning model must be trained only on development episodes and compared against the frozen baseline on the same held-out suite.
+The locked-test split prevents an inflated claim: PPO training does not see patients `adult#002`–`adult#005` or the frozen meal schedules used in the comparison suite. Any later improvement must be measured against the already-frozen fixed-action outputs on those same cases.
