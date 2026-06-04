@@ -1,4 +1,8 @@
-"""Evaluate a trained PPO model on the frozen held-out baseline suite."""
+"""Final-only evaluation of a residual PPO model on the frozen held-out suite.
+
+Do not use this script while designing or tuning the controller. Use
+``evaluate_ppo_validation.py`` during iteration instead.
+"""
 
 from __future__ import annotations
 
@@ -27,8 +31,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate PPO against the frozen held-out suite.")
     parser.add_argument(
         "--model",
-        default="models/ppo_smoke_model.zip",
-        help="Model path relative to project root or an absolute path.",
+        default="models/ppo_residual_final_model.zip",
+        help="Locked residual model path relative to project root or an absolute path.",
+    )
+    parser.add_argument(
+        "--confirm-final-evaluation",
+        action="store_true",
+        help="Required acknowledgement that this runs the final held-out comparison.",
     )
     return parser.parse_args()
 
@@ -78,11 +87,19 @@ def plot_worst_trace(trace: pd.DataFrame, output_path: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    if not args.confirm_final_evaluation:
+        raise RuntimeError(
+            "Held-out evaluation is now closed during model development. "
+            "Run scripts/evaluate_ppo_validation.py instead. "
+            "Use --confirm-final-evaluation only after locking a final model."
+        )
     model_path = Path(args.model)
     if not model_path.is_absolute():
         model_path = ROOT / model_path
     if not model_path.exists():
         raise FileNotFoundError(f"PPO model not found: {model_path}. Train it first.")
+    if model_path.name == "ppo_smoke_model.zip":
+        raise ValueError("The Phase 4 native-action smoke model is incompatible with the residual environment.")
 
     baseline_path = ROOT / "outputs" / "generalization" / "fixed_action_generalization_summary.csv"
     if not baseline_path.exists():
@@ -156,8 +173,7 @@ def main() -> None:
         f"mean risk={worst['mean_risk']:.4f}"
     )
     print(f"Comparison summary saved to: {summary_path}")
-    if "smoke" in model_path.name.lower():
-        print("Important: this is a smoke-model evaluation, not a final trained-result claim.")
+    print("Final held-out evaluation completed for the locked residual model.")
 
 
 if __name__ == "__main__":

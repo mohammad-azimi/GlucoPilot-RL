@@ -1,0 +1,27 @@
+Phase 5 — Residual PPO and Validation Protocol
+
+Purpose
+-------
+The Phase 4 smoke model proved that training, saving, loading and evaluation run end to end.
+It was not intended to perform well. Its poor result exposed a controller-design issue:
+the native action space [0, 0.055] made an untrained deterministic policy act close to
+zero insulin action. Phase 5 corrects that before serious training.
+
+Changes
+-------
+- Replace native PPO action with a normalized residual action in [-1, 1].
+- Residual 0 exactly means the frozen fixed-action reference (0.0450).
+- Residual -1 maps to 0.0000 and residual +1 maps to 0.0550.
+- Initialize PPO deterministically at residual 0 with smaller exploration variance.
+- Increase training diversity while keeping validation and held-out subjects separate.
+- Add a validation evaluator; held-out evaluation is closed during model iteration.
+
+Run
+---
+.venv\Scripts\activate
+python scripts\check_residual_controller.py
+python scripts\train_ppo_agent.py --timesteps 5000 --model-name ppo_residual_smoke_model
+python scripts\evaluate_ppo_validation.py --model models\ppo_residual_smoke_model.zip
+
+Do not use models\ppo_smoke_model.zip with the Phase 5 environment; that model was trained
+under a different action meaning.
