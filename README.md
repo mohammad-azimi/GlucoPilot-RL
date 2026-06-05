@@ -188,6 +188,8 @@ GlucoPilot-RL/
 │   ├── check_discrete_safety_shield.py
 │   ├── evaluate_discrete_shield_validation.py
 │   ├── train_dqn_discrete_with_validation_selection.py
+│   ├── lock_dqn_checkpoint.py
+│   ├── evaluate_locked_dqn_final.py
 │   ├── train_ppo_with_validation_selection.py
 │   └── evaluate_ppo_generalization.py      # final-only gate
 ├── src/
@@ -268,3 +270,38 @@ python scripts\train_dqn_discrete_with_validation_selection.py --total-timesteps
 ```
 
 The final held-out suite is still not used by these commands.
+
+
+## Phase 9 commands: lock DQN checkpoint and open final held-out suite once
+
+Validation analysis showed that checkpoint `10240` was the best learned DQN
+candidate: mean validation time-in-range improved by `+4.53` percentage points
+and mean simulated risk decreased by `-1.2952`, with no very-low exposure in
+validation. It increased maximum below-range exposure from `2.71%` to `5.00%`,
+so this model should be presented as a research simulation trade-off rather
+than a medical controller.
+
+Lock the chosen checkpoint:
+
+```bat
+python scripts\lock_dqn_checkpoint.py --source models\dqn_discrete_shield_selection_51k\dqn_discrete_shield_selection_51k_step-010240.zip --locked-name dqn_discrete_shield_locked_010240
+```
+
+Then run the final held-out evaluation exactly once:
+
+```bat
+python scripts\evaluate_locked_dqn_final.py --model models\dqn_discrete_shield_locked_010240.zip --run-name dqn_discrete_shield_locked_010240
+```
+
+Generated final outputs:
+
+```text
+outputs/final_held_out/dqn_discrete_shield_locked_010240/locked_dqn_vs_fixed_held_out_summary.csv
+outputs/final_held_out/dqn_discrete_shield_locked_010240/final_held_out_aggregate_metrics.txt
+outputs/final_held_out/dqn_discrete_shield_locked_010240/locked_dqn_held_out_time_in_range_heatmap.png
+outputs/final_held_out/dqn_discrete_shield_locked_010240/locked_dqn_minus_fixed_tir_delta_heatmap.png
+outputs/final_held_out/dqn_discrete_shield_locked_010240/locked_dqn_minus_fixed_risk_delta_heatmap.png
+outputs/final_held_out/dqn_discrete_shield_locked_010240/worst_locked_dqn_held_out_trace.png
+```
+
+This is the final locked comparison. Do not re-tune on these results.
