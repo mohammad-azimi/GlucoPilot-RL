@@ -20,3 +20,7 @@ outputs/**/*.png
 !outputs/.gitkeep
 models/
 logs/
+# Training artifacts that can be large
+models/**/*.zip
+!models/.gitkeep
+# Local system files
