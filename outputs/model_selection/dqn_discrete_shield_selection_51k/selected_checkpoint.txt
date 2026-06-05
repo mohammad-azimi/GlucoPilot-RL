@@ -1,0 +1,12 @@
+Validation-only shielded discrete DQN checkpoint selection
+run_name: dqn_discrete_shield_selection_51k
+selected_steps: 0
+selected_model: neutral_discrete_shield_policy_no_model_file
+mean_tir_pct: 75.2344
+mean_tir_delta_pct_points: -0.0260
+max_below_pct: 2.7083
+max_very_low_pct: 0.0000
+mean_risk: 5.0101
+mean_shield_intervention_pct: 10.9115
+ranking: validation gate first; then minimum severe lows, minimum below range, minimum risk, maximum TIR
+final_held_out_suite_used: no
