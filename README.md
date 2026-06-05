@@ -13,8 +13,8 @@ GlucoPilot-RL is a portfolio-oriented research project that studies adaptive sim
 - [x] Demonstrate the fixed controller's failure to generalize across virtual patients and meal schedules.
 - [x] Verify the first PPO training/save/load/evaluation pipeline with a short smoke model.
 - [x] Redesign PPO as a normalized **residual policy** anchored to the fixed-action baseline.
-- [ ] Run the residual-policy smoke test on the validation suite.
-- [ ] Train and select a longer model using validation only.
+- [x] Run the residual-policy smoke test on the validation suite.
+- [ ] Train and select a longer model using validation-only checkpoints.
 - [ ] Run one final locked comparison and prepare portfolio figures.
 
 ## Why adaptive control is needed
@@ -58,7 +58,7 @@ The chosen reference action is frozen at `0.0450`.
 The residual PPO policy trains only on a randomized development pool:
 
 ```text
-Patients: adult#001, adult#006–adult#008, adult#011–adult#016
+Patients: adult#001, adult#006–adult#008
 Meal schedules: eight development-only schedules
 ```
 
@@ -110,6 +110,51 @@ python scripts\evaluate_ppo_validation.py --model models\ppo_residual_smoke_mode
 
 The previous model file `models\ppo_smoke_model.zip` used the old native-action meaning and must not be evaluated with the Phase 5 residual environment.
 
+
+## Phase 6 commands: validation-only checkpoint selection
+
+The corrected 5,000-step residual smoke model should be treated as a pipeline
+check, not a final result. It closely recovered the frozen reference on the
+validation suite, scoring `73.62%` mean time in range versus `75.26%` for the
+fixed reference, with a `-1.64` percentage-point difference.
+
+Train a longer residual policy from scratch while saving and validating
+intermediate checkpoints:
+
+```bat
+python scripts\train_ppo_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name ppo_residual_selection_51k
+```
+
+This command evaluates:
+
+```text
+step 0      neutral deterministic residual policy, identical to the fixed reference
+step 10240  learned checkpoint
+step 20480  learned checkpoint
+step 30720  learned checkpoint
+step 40960  learned checkpoint
+step 51200  learned checkpoint
+```
+
+Checkpoint selection is conservative and uses **validation only**. It ranks
+models by worst very-low exposure, worst below-range exposure, mean simulated
+risk and then mean time in range. The final held-out suite remains closed.
+
+Generated selection outputs:
+
+```text
+models/ppo_residual_selection_51k/
+models/ppo_residual_selection_51k_selected_best.zip
+outputs/model_selection/ppo_residual_selection_51k/validation_checkpoint_summary.csv
+outputs/model_selection/ppo_residual_selection_51k/validation_tir_by_checkpoint.png
+outputs/model_selection/ppo_residual_selection_51k/validation_risk_by_checkpoint.png
+outputs/model_selection/ppo_residual_selection_51k/selected_checkpoint.txt
+```
+
+If step zero is selected, none of the learned policies safely improved on the
+reference and the final held-out suite must remain closed while the controller
+design is revised.
+
 ## Generated outputs
 
 Existing baseline and held-out baseline outputs remain in `outputs/baseline/` and `outputs/generalization/`.
@@ -140,6 +185,7 @@ GlucoPilot-RL/
 │   ├── check_residual_controller.py
 │   ├── train_ppo_agent.py
 │   ├── evaluate_ppo_validation.py
+│   ├── train_ppo_with_validation_selection.py
 │   └── evaluate_ppo_generalization.py      # final-only gate
 ├── src/
 │   └── glucopilot_rl/

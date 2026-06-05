@@ -23,10 +23,7 @@ HELD_OUT_SCENARIOS = ["standard-day", "high-carb-day", "late-dinner", "snack-hea
 # Domain-randomized PPO training pool. Patients are separated from validation
 # and held-out groups so a model cannot memorize the final evaluation subjects.
 TRAINING_PATIENTS = [
-    "adult#001",
-    "adult#006",
-    "adult#007",
-    "adult#008",
+    "adult#001", "adult#006", "adult#007", "adult#008",
 ]
 TRAINING_SCENARIOS = [
     "train-balanced-a", "train-balanced-b", "train-variable-a", "train-variable-b",

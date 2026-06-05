@@ -1,0 +1,11 @@
+Validation-only residual PPO checkpoint selection
+run_name: ppo_residual_selection_51k
+selected_steps: 40960
+selected_model: C:\Users\Rayan Service\Desktop\Projects\GlucoPilot-RL\models\ppo_residual_selection_51k_selected_best.zip
+mean_tir_pct: 72.6562
+mean_tir_delta_pct_points: -2.6042
+max_below_pct: 0.0000
+max_very_low_pct: 0.0000
+mean_risk: 5.6152
+ranking: minimum max very-low, minimum max below-range, minimum mean risk, maximum mean TIR
+final_held_out_suite_used: no
