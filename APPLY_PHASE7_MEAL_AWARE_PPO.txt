@@ -1,0 +1,23 @@
+PHASE 7 — MEAL-AWARE RESIDUAL PPO
+
+1. Copy the contents of this GlucoPilot-RL folder into your existing project folder.
+   Choose Replace for files with the same names. Keep .venv, models and outputs.
+
+2. This phase adds announced virtual-meal features to the PPO observation:
+   - upcoming meal carbohydrates
+   - time until upcoming meal
+   - recent meal carbohydrates
+   - time since recent meal
+
+3. It also tightens validation checkpoint selection. A learned model is selected
+   only if it preserves low-glucose safety and improves either validation risk
+   or validation time-in-range versus the neutral fixed reference.
+
+4. Run:
+   .venv\Scripts\activate
+   python scripts\train_ppo_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name ppo_meal_aware_selection_51k
+
+5. Do NOT run final held-out evaluation yet unless selected_checkpoint.txt says
+   a non-zero checkpoint passed the validation gate.
+
+Research simulation only. Not for real medical decision-making.

@@ -199,3 +199,32 @@ GlucoPilot-RL/
 ├── requirements.txt
 └── README.md
 ```
+
+
+## Phase 7 commands: meal-aware residual PPO
+
+Phase 6 showed that the residual PPO checkpoints became safer on below-range
+exposure but did not outperform the neutral fixed reference on validation risk or
+mean time in range. Phase 7 adds announced virtual-meal context to the PPO
+observation vector and tightens checkpoint selection so a learned model is kept
+only if it passes a validation gate against the neutral fixed reference.
+
+Run a fresh meal-aware training/selection experiment:
+
+```bat
+python scripts\train_ppo_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name ppo_meal_aware_selection_51k
+```
+
+Generated outputs:
+
+```text
+models/ppo_meal_aware_selection_51k/
+models/ppo_meal_aware_selection_51k_selected_best.zip
+outputs/model_selection/ppo_meal_aware_selection_51k/validation_checkpoint_summary.csv
+outputs/model_selection/ppo_meal_aware_selection_51k/validation_tir_by_checkpoint.png
+outputs/model_selection/ppo_meal_aware_selection_51k/validation_risk_by_checkpoint.png
+outputs/model_selection/ppo_meal_aware_selection_51k/selected_checkpoint.txt
+```
+
+The final held-out suite still remains closed unless the selected checkpoint is
+not step zero and passes the validation gate.

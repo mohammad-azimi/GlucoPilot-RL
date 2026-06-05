@@ -180,13 +180,27 @@ def plot_progress(summary: pd.DataFrame, output_dir: Path) -> None:
 
 
 def select_checkpoint(summary: pd.DataFrame) -> pd.Series:
-    """Apply an intentionally conservative validation-only ranking.
+    """Apply a conservative validation gate before selecting a learned model.
 
-    The ranking prioritizes reducing severe low-glucose exposure first, then
-    overall below-range exposure, then mean simulated risk, and finally TIR.
-    It may select step zero if no trained checkpoint safely beats the reference.
+    Step zero is the neutral residual policy and reproduces the fixed reference.
+    A learned checkpoint is allowed to replace it only if it preserves severe-low
+    safety, does not increase worst below-range exposure, and either improves
+    mean simulated risk or improves mean time in range. This prevents selecting
+    a learned policy that merely avoids lows by accepting worse overall control.
     """
-    ranked = summary.sort_values(
+    reference = summary.loc[summary["checkpoint_steps"] == 0].iloc[0]
+    learned = summary.loc[summary["checkpoint_steps"] > 0].copy()
+    accepted = learned.loc[
+        (learned["ppo_max_very_low_pct"] <= reference["ppo_max_very_low_pct"])
+        & (learned["ppo_max_below_pct"] <= reference["ppo_max_below_pct"])
+        & (
+            (learned["ppo_mean_risk"] <= reference["fixed_mean_risk"])
+            | (learned["mean_tir_delta_pct_points"] >= 0.0)
+        )
+    ]
+    if accepted.empty:
+        return reference
+    ranked = accepted.sort_values(
         by=[
             "ppo_max_very_low_pct",
             "ppo_max_below_pct",
@@ -277,7 +291,7 @@ def main() -> None:
                 f"max_below_pct: {selected['ppo_max_below_pct']:.4f}",
                 f"max_very_low_pct: {selected['ppo_max_very_low_pct']:.4f}",
                 f"mean_risk: {selected['ppo_mean_risk']:.4f}",
-                "ranking: minimum max very-low, minimum max below-range, minimum mean risk, maximum mean TIR",
+                "ranking: validation gate first; then minimum max very-low, minimum max below-range, minimum mean risk, maximum mean TIR",
                 "final_held_out_suite_used: no",
             ]
         )
@@ -297,7 +311,7 @@ def main() -> None:
     print(f"Selected validation mean TIR delta: {selected['mean_tir_delta_pct_points']:+.2f} percentage points")
     print(f"Selected validation mean risk: {selected['ppo_mean_risk']:.4f}")
     if selected_steps == 0:
-        print("No learned checkpoint safely beat the neutral reference under the conservative ranking.")
+        print("No learned checkpoint passed the validation gate against the neutral reference.")
         print("Do not open the final held-out suite yet; redesign the policy or observations next.")
     else:
         print("A learned checkpoint was selected using validation only.")

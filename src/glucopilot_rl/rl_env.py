@@ -24,7 +24,7 @@ from simglucose.envs import T1DSimGymnaisumEnv
 
 from .env import ScalarBasalActionWrapper
 from .protocol import TRAINING_PATIENTS, TRAINING_SCENARIOS, TUNED_FIXED_ACTION
-from .scenarios import SENSOR_SAMPLE_MINUTES, STANDARD_DAY_STEPS, make_scenario
+from .scenarios import SENSOR_SAMPLE_MINUTES, STANDARD_DAY_STEPS, get_scenario_meals, make_scenario
 
 MIN_SIMULATOR_ACTION = 0.0
 MAX_SIMULATOR_ACTION = 0.0550
@@ -67,9 +67,9 @@ def safety_shaped_reward(bg_last_hour: Sequence[float]) -> float:
 
 
 class ResidualGlucoseControlEnv(gym.Env[np.ndarray, np.ndarray]):
-    """Feature-based residual-control environment for PPO.
+    """Meal-aware feature-based residual-control environment for PPO.
 
-    A fresh one-day episode is sampled at every reset. Training uses only the
+    A fresh one-day episode is sampled at every reset. The observation includes announced virtual-meal context so the agent is not forced to infer meals only after CGM has already moved. Training uses only the
     development pool; validation and final evaluation provide fixed patient,
     schedule and simulator-seed combinations explicitly.
     """
@@ -109,10 +109,13 @@ class ResidualGlucoseControlEnv(gym.Env[np.ndarray, np.ndarray]):
             high=np.array([1.0], dtype=np.float32),
             dtype=np.float32,
         )
-        # Features: scaled CGM, short trend, time sin/cos and prior residual.
+        # Features: scaled CGM, short trend, time sin/cos, prior residual,
+        # upcoming meal carbs, time until upcoming meal, recent meal carbs and
+        # time since recent meal. Meal features are available because the
+        # experiment scenarios explicitly announce fixed virtual meals.
         self.observation_space = gym.spaces.Box(
-            low=np.array([-1.25, -4.0, -1.0, -1.0, -1.0], dtype=np.float32),
-            high=np.array([8.75, 4.0, 1.0, 1.0, 1.0], dtype=np.float32),
+            low=np.array([-1.25, -4.0, -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            high=np.array([8.75, 4.0, 1.0, 1.0, 1.0, 1.5, 1.0, 1.5, 1.0], dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -126,11 +129,39 @@ class ResidualGlucoseControlEnv(gym.Env[np.ndarray, np.ndarray]):
         timed_env = gym.wrappers.TimeLimit(raw_env, max_episode_steps=self.episode_steps)
         return ScalarBasalActionWrapper(timed_env)
 
+    def _meal_context_features(self, hours: float) -> tuple[float, float, float, float]:
+        meals = sorted(get_scenario_meals(self.current_scenario_name), key=lambda item: item[0])
+        if not meals:
+            return 0.0, 1.0, 0.0, 1.0
+
+        next_candidates = [(meal_hour, grams) for meal_hour, grams in meals if meal_hour >= hours]
+        if next_candidates:
+            next_hour, next_grams = next_candidates[0]
+            hours_until_next = next_hour - hours
+        else:
+            first_hour, next_grams = meals[0]
+            hours_until_next = (24.0 - hours) + first_hour
+
+        previous_candidates = [(meal_hour, grams) for meal_hour, grams in meals if meal_hour <= hours]
+        if previous_candidates:
+            previous_hour, previous_grams = previous_candidates[-1]
+            hours_since_previous = hours - previous_hour
+        else:
+            last_hour, previous_grams = meals[-1]
+            hours_since_previous = hours + (24.0 - last_hour)
+
+        upcoming_carbs_scaled = float(np.clip(next_grams / 100.0, 0.0, 1.5))
+        until_next_scaled = float(np.clip(hours_until_next / 12.0, 0.0, 1.0))
+        recent_carbs_scaled = float(np.clip(previous_grams / 100.0, 0.0, 1.5))
+        since_recent_scaled = float(np.clip(hours_since_previous / 12.0, 0.0, 1.0))
+        return upcoming_carbs_scaled, until_next_scaled, recent_carbs_scaled, since_recent_scaled
+
     def _features(self, cgm: float) -> np.ndarray:
         cgm_scaled = np.clip((cgm - 125.0) / 100.0, -1.25, 8.75)
         delta_scaled = np.clip((cgm - self._previous_cgm) / 10.0, -4.0, 4.0)
         hours = self._step_count * SENSOR_SAMPLE_MINUTES / 60.0
         angle = 2.0 * np.pi * hours / 24.0
+        meal_features = self._meal_context_features(hours)
         features = np.array(
             [
                 cgm_scaled,
@@ -138,6 +169,7 @@ class ResidualGlucoseControlEnv(gym.Env[np.ndarray, np.ndarray]):
                 np.sin(angle),
                 np.cos(angle),
                 self._previous_residual_action,
+                *meal_features,
             ],
             dtype=np.float32,
         )
