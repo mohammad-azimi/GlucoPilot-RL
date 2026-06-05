@@ -211,4 +211,4 @@ If you use or present this repository, describe it as:
 
 ## License
 
-Add a license before public release. For a portfolio project, MIT is a practical default unless you want stricter restrictions.
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
