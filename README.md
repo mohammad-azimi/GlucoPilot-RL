@@ -1,33 +1,35 @@
 # GlucoPilot-RL
 
-**Research simulation for blood glucose control with reinforcement learning.**
+**Safety-shielded reinforcement learning for simulated blood glucose control with virtual Type 1 Diabetes patients.**
 
-GlucoPilot-RL is a reinforcement learning project that studies simulated insulin-like control decisions for virtual Type 1 Diabetes patients. The project compares fixed-action control, continuous PPO variants, and a final safety-shielded discrete DQN controller inside the `simglucose` virtual-patient simulator.
+GlucoPilot-RL is a research and portfolio project that explores reinforcement learning for simulated blood glucose control. It compares a fixed-action baseline, continuous PPO variants, meal-aware PPO, and a final safety-shielded discrete DQN controller inside the `simglucose` virtual-patient simulator.
 
 > **Medical safety notice**  
-> This repository is for research and educational simulation only. It is **not** a medical device, not a treatment recommendation, and must not be used for real insulin dosing or clinical decision-making.
+> This project is for research and educational simulation only. It is **not** a medical device, not a treatment recommendation, and must not be used for real insulin dosing or clinical decision-making.
 
 ---
 
-## Final result
+## Final held-out result
 
-The final model was locked **before** opening the final held-out evaluation suite. It was then evaluated once on 16 unseen virtual-patient/scenario combinations.
+The final DQN checkpoint was selected using validation results, locked, and then evaluated once on a final held-out suite of 16 unseen virtual-patient/scenario combinations.
 
 | Metric | Fixed baseline | Locked shielded DQN | Change |
 |---|---:|---:|---:|
 | Mean time in range | `73.65%` | `76.65%` | `+3.01` percentage points |
 | Mean simulated risk | `7.5494` | `5.5441` | `-2.0053` |
-| Worst below-range exposure | `66.88%` | `43.75%` | improved |
-| Worst very-low exposure | `55.62%` | `27.08%` | improved |
-| Mean safety-shield intervention rate | `—` | `28.22%` | — |
+| Worst below-range exposure | `66.88%` | `43.75%` | Improved |
+| Worst very-low exposure | `55.62%` | `27.08%` | Improved |
+| Mean safety-shield intervention rate | `—` | `28.22%` | `—` |
 
-The locked shielded DQN improved average time in range and reduced mean simulated risk on the final held-out suite. It also reduced the worst low-glucose exposure compared with the fixed baseline. However, the worst-case trace still shows clinically unsafe simulated behavior, so the project should be presented as a research prototype rather than a deployable medical controller.
+The locked shielded DQN improved average time in range and reduced mean simulated risk on the final held-out suite. It also reduced the worst low-glucose exposure compared with the fixed baseline.
+
+The result is promising, but the project should still be presented as a **research simulation**, not as a deployable medical controller.
 
 ---
 
-## Final held-out visualizations
+## Final visualizations
 
-### Final time in range
+### Final DQN time in range
 
 ![Final held-out time in range](docs/assets/final_time_in_range_heatmap.png)
 
@@ -35,7 +37,7 @@ The locked shielded DQN improved average time in range and reduced mean simulate
 
 ![Final held-out TIR delta](docs/assets/final_tir_delta_heatmap.png)
 
-### DQN minus fixed baseline: mean risk delta
+### DQN minus fixed baseline: mean-risk delta
 
 ![Final held-out risk delta](docs/assets/final_risk_delta_heatmap.png)
 
@@ -47,55 +49,58 @@ The locked shielded DQN improved average time in range and reduced mean simulate
 
 ## Why this project is interesting
 
-This project is not just a single training run. It follows a research-style workflow:
+This repository documents a full experimental workflow instead of only showing a final model.
 
-1. Build a reproducible fixed-action baseline.
-2. Show that a tuned fixed action fails to generalize across virtual patients.
-3. Test a continuous PPO controller.
-4. Redesign PPO as a normalized residual controller.
-5. Add meal-aware observations.
-6. Switch to a discrete action space.
-7. Add a safety shield.
-8. Train DQN with validation-only checkpoint selection.
-9. Lock the selected model.
-10. Evaluate exactly once on the final held-out suite.
+The project went through:
 
-This makes the project stronger for a portfolio because it demonstrates experimentation, failure analysis, validation discipline, and honest reporting.
+1. A reproducible fixed-action baseline.
+2. Generalization testing across unseen virtual patients.
+3. Continuous PPO experiments.
+4. Residual PPO redesign.
+5. Meal-aware PPO observations.
+6. A discrete residual action space.
+7. A rule-based safety shield.
+8. DQN training with validation-only checkpoint selection.
+9. A locked final model.
+10. One-time final held-out evaluation.
+
+This makes the project suitable for a machine learning portfolio because it shows experimentation, failure analysis, model selection discipline, safety-aware design, and honest reporting of limitations.
 
 ---
 
-## Methods
+## Method overview
 
-### Environment
+### Simulator
 
-- Simulator: `simglucose`
-- Virtual patient family: adult virtual patients
-- Episode length: 24 simulated hours
-- CGM sampling interval: 3 minutes
-- Final held-out cases: 16 unseen patient/scenario combinations
+- Environment: `simglucose`
+- Task: simulated 24-hour blood glucose control
+- Patient type: adult virtual Type 1 Diabetes patients
+- Observation interval: 3 simulated minutes
+- Evaluation: validation suite and final held-out suite
 
-### Action design
+### Final controller
 
-The final controller uses a small discrete residual action space around a tuned fixed reference action:
+The final controller uses:
+
+- Discrete DQN
+- Residual action design
+- Safety-shielded action correction
+- Validation-only checkpoint selection
+- A locked model before final held-out evaluation
+
+The final action space is a set of residual choices around a tuned fixed reference action:
 
 ```text
 [-1.00, -0.75, -0.50, -0.25, 0.00, +0.25, +0.50, +1.00]
 ```
 
-The neutral residual action reproduces the fixed-action baseline. A rule-based safety shield can override obviously unsafe directions, such as adding action when simulated glucose is already low.
-
-### Model
-
-- Algorithm: DQN
-- Controller type: safety-shielded discrete residual policy
-- Selection method: validation-only checkpoint selection
-- Final model: locked DQN checkpoint at 10,240 training timesteps
+The neutral action reproduces the fixed-action baseline. The safety shield can override clearly unsafe choices, such as increasing insulin-like action when simulated glucose is already low.
 
 ---
 
 ## Validation before final testing
 
-The DQN checkpoint at 10,240 timesteps was chosen based on validation analysis before the final held-out suite was opened.
+Before opening the final held-out suite, the DQN checkpoint at 10,240 timesteps was selected from validation results.
 
 | Validation metric | Neutral shield | DQN checkpoint 10,240 |
 |---|---:|---:|
@@ -106,7 +111,7 @@ The DQN checkpoint at 10,240 timesteps was chosen based on validation analysis b
 | Max below range | `2.71%` | `5.00%` |
 | Max very low | `0.00%` | `0.00%` |
 
-The validation result was promising but showed a trade-off: better mean performance with slightly higher below-range exposure in some validation cases. This is why the final report explicitly avoids medical claims.
+The validation result showed a trade-off: the DQN improved average time in range and mean risk, but slightly increased below-range exposure in some validation cases. This is why the final report avoids medical claims.
 
 ![DQN validation TIR by checkpoint](docs/assets/dqn_validation_tir_by_checkpoint.png)
 
@@ -114,7 +119,7 @@ The validation result was promising but showed a trade-off: better mean performa
 
 ---
 
-## Project structure
+## Repository structure
 
 ```text
 GlucoPilot-RL/
@@ -130,12 +135,13 @@ GlucoPilot-RL/
 │   └── glucopilot_rl/
 ├── requirements.txt
 ├── pyproject.toml
+├── LICENSE
 └── README.md
 ```
 
 ---
 
-## Reproduce the final workflow
+## Installation
 
 Create and activate a virtual environment:
 
@@ -145,6 +151,10 @@ py -m venv .venv
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
 ```
+
+---
+
+## Reproduce the workflow
 
 Run the environment check:
 
@@ -164,14 +174,14 @@ Evaluate baseline generalization:
 python scripts\evaluate_baseline_generalization.py
 ```
 
-Run the safety-shield checks:
+Run the discrete safety-shield validation:
 
 ```bat
 python scripts\check_discrete_safety_shield.py
 python scripts\evaluate_discrete_shield_validation.py
 ```
 
-Train DQN with validation checkpoint selection:
+Train the shielded discrete DQN with validation checkpoint selection:
 
 ```bat
 python scripts\train_dqn_discrete_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name dqn_discrete_shield_selection_51k
@@ -191,21 +201,40 @@ python scripts\evaluate_locked_dqn_final.py --model models\dqn_discrete_shield_l
 
 ---
 
+## Key outputs
+
+Important final artifacts are stored in:
+
+```text
+docs/assets/
+docs/results/
+docs/PROJECT_REPORT.md
+docs/RESUME_SNIPPET.md
+```
+
+Generated local training artifacts are ignored by Git:
+
+```text
+models/
+outputs/
+```
+
+---
+
 ## Limitations
 
 - This is a simulation-only project.
 - The policy is not clinically validated.
 - The reward function and safety shield are manually designed.
-- The final worst-case trace still contains unsafe glucose behavior.
-- The model should not be used outside the virtual-patient simulator.
+- The final worst-case trace still contains unsafe simulated glucose behavior.
+- The model must not be used outside the virtual-patient simulator.
+- No real patient data is used.
 
 ---
 
-## Suggested citation / disclaimer
+## Portfolio summary
 
-If you use or present this repository, describe it as:
-
-> A research simulation of safety-shielded reinforcement learning for virtual blood glucose control, evaluated on held-out virtual patients. Not intended for medical decision-making.
+**GlucoPilot-RL** is a safety-aware reinforcement learning simulation for virtual blood glucose control. The final shielded DQN improved final held-out mean time in range from `73.65%` to `76.65%` and reduced mean simulated risk from `7.5494` to `5.5441`, while still being clearly documented as a research-only simulation.
 
 ---
 

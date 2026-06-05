@@ -4,7 +4,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 
@@ -14,18 +14,11 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Generated results
-outputs/**/*.csv
-outputs/**/*.png
-!outputs/.gitkeep
-models/
-logs/
-# Training artifacts that can be large
-models/**/*.zip
-!models/.gitkeep
-# Local system files
 # Generated training artifacts
 outputs/*
 !outputs/.gitkeep
+
 models/*
 !models/.gitkeep
+
+logs/
