@@ -185,6 +185,9 @@ GlucoPilot-RL/
 │   ├── check_residual_controller.py
 │   ├── train_ppo_agent.py
 │   ├── evaluate_ppo_validation.py
+│   ├── check_discrete_safety_shield.py
+│   ├── evaluate_discrete_shield_validation.py
+│   ├── train_dqn_discrete_with_validation_selection.py
 │   ├── train_ppo_with_validation_selection.py
 │   └── evaluate_ppo_generalization.py      # final-only gate
 ├── src/
@@ -228,3 +231,40 @@ outputs/model_selection/ppo_meal_aware_selection_51k/selected_checkpoint.txt
 
 The final held-out suite still remains closed unless the selected checkpoint is
 not step zero and passes the validation gate.
+
+
+## Phase 8 commands: discrete safety shield and DQN
+
+Phase 7 showed that the meal-aware continuous PPO checkpoints did not pass
+the validation gate, so the final held-out suite remains closed. Phase 8
+switches to an interpretable discrete residual action set and adds a hard
+safety shield.
+
+Quick sanity check:
+
+```bat
+python scripts\check_discrete_safety_shield.py
+```
+
+Validate the neutral discrete controller with the safety shield:
+
+```bat
+python scripts\evaluate_discrete_shield_validation.py
+```
+
+Generated outputs:
+
+```text
+outputs/discrete_shield_validation/shielded_neutral_validation_summary.csv
+outputs/discrete_shield_validation/shielded_neutral_validation_tir_bars.png
+outputs/discrete_shield_validation/shielded_neutral_validation_risk_bars.png
+```
+
+If the shielded neutral controller is promising, train a discrete DQN with the
+same validation-only checkpoint-selection discipline:
+
+```bat
+python scripts\train_dqn_discrete_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name dqn_discrete_shield_selection_51k
+```
+
+The final held-out suite is still not used by these commands.

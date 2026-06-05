@@ -1,0 +1,23 @@
+PHASE 8 — DISCRETE SAFETY SHIELD AND DQN
+
+1. Copy the contents of this GlucoPilot-RL folder into your existing project folder.
+   Choose Replace for files with the same names.
+   Keep your local .venv, models, and outputs folders.
+
+2. Run the quick sanity check:
+   .venv\Scripts\activate
+   python scripts\check_discrete_safety_shield.py
+
+3. Run the quick validation check:
+   python scripts\evaluate_discrete_shield_validation.py
+
+4. Send these outputs first:
+   outputs\discrete_shield_validation\shielded_neutral_validation_summary.csv
+   outputs\discrete_shield_validation\shielded_neutral_validation_tir_bars.png
+   outputs\discrete_shield_validation\shielded_neutral_validation_risk_bars.png
+
+5. Only if the quick validation is promising, run DQN:
+   python scripts\train_dqn_discrete_with_validation_selection.py --total-timesteps 51200 --checkpoint-every 10240 --run-name dqn_discrete_shield_selection_51k
+
+6. Do NOT run final held-out evaluation yet.
+   Research simulation only. Not for real medical decision-making.
