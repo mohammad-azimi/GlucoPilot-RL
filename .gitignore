@@ -24,3 +24,8 @@ logs/
 models/**/*.zip
 !models/.gitkeep
 # Local system files
+# Generated training artifacts
+outputs/*
+!outputs/.gitkeep
+models/*
+!models/.gitkeep
